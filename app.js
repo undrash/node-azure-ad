@@ -1,3 +1,13 @@
+require('dotenv').config();
+
+console.log( process.env.OAUTH_APP_ID );
+console.log( process.env.OAUTH_APP_SECRET );
+console.log( process.env.OAUTH_SCOPES );
+console.log( process.env.OAUTH_REDIRECT_URI );
+console.log( process.env.OAUTH_AUTHORITY );
+
+
+
 const session = require('express-session');
 const flash = require('connect-flash');
 const msal = require('@azure/msal-node');
@@ -8,10 +18,40 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
+var app = express();
+
+// In-memory storage of logged-in users
+// For demo purposes only, production apps should store
+// this in a reliable storage
+app.locals.users = {};
+
+// MSAL config
+const msalConfig = {
+  auth: {
+    clientId: process.env.OAUTH_APP_ID,
+    authority: process.env.OAUTH_AUTHORITY,
+    clientSecret: process.env.OAUTH_APP_SECRET
+  },
+  system: {
+    loggerOptions: {
+      loggerCallback(loglevel, message, containsPii) {
+        console.log(message);
+      },
+      piiLoggingEnabled: false,
+      logLevel: msal.LogLevel.Verbose,
+    }
+  }
+};
+
+// Create msal application object
+app.locals.msalClient = new msal.ConfidentialClientApplication(msalConfig);
+
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 
-var app = express();
+var authRouter = require('./routes/auth');
+
+
 
 // Session middleware
 // NOTE: Uses default in-memory session store, which is not
@@ -60,6 +100,8 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
+app.use('/auth', authRouter);
+
 app.use('/users', usersRouter);
 
 // catch 404 and forward to error handler
